@@ -16,13 +16,17 @@
 package nl.flotsam.xeger;
 
 import com.github.dakusui.jcunit.runners.standard.JCUnit;
+import com.github.dakusui.jcunit.runners.standard.annotations.Condition;
 import com.github.dakusui.jcunit.runners.standard.annotations.FactorField;
 import com.github.dakusui.jcunit.runners.standard.annotations.Precondition;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static org.junit.Assert.assertTrue;
@@ -87,24 +91,48 @@ public class XegerTest {
   @Precondition
   public boolean check() {
     //return "\\p{javaLowerCase}".equals(this.characterClass1);
-    return "\\w".equals(this.characterClass1);
+    //return "\\w".equals(this.characterClass1);
+    return true;
   }
 
   @Test
-  public void shouldGenerateTextCorrectly() {
+  public void shouldGenerateTextsThatMatchOriginalRegex() {
     String regex = this.composeRegex();
-    System.out.println(regex);
     Xeger generator = new Xeger(regex, new Random(1));
     for (int i = 0; i < 100; i++) {
-      String text = generator.generate().replaceAll("[\\u000a\\u000d]", " ");
-      System.out.println("<" + text + ">");
+      String text = generator.generate();
       assertTrue(
           String.format("Generated text '%s' didn't match regex '%s", text, regex),
           Pattern.compile(
-              regex,
-              Pattern.CANON_EQ//Pattern.UNIX_LINES //Pattern.MULTILINE//Pattern.UNICODE_CASE //Pattern.DOTALL //
+              regex//,
+              //0//Pattern.DOTALL//CANON_EQ//Pattern.UNIX_LINES //Pattern.MULTILINE//Pattern.UNICODE_CASE //Pattern.DOTALL //
           ).matcher(text).matches());
     }
+  }
+
+  @Test
+  public void shouldBeRepeatable() throws InterruptedException {
+    int tries = 100;
+    int seed = 1;
+    String regex = this.composeRegex();
+    List<String> first = new ArrayList<String>(tries);
+    {
+      Xeger generator1 = new Xeger(regex, new Random(seed));
+      for (int i = 0; i < tries; i++) {
+        first.add(generator1.generate());
+      }
+    }
+    TimeUnit.MILLISECONDS.sleep(1);
+    List<String> second = new ArrayList<String>(tries);
+    {
+      Xeger generator2 = new Xeger(regex, new Random(seed));
+      for (int i = 0; i < tries; i++) {
+        second.add(generator2.generate());
+      }
+    }
+    assertTrue(
+        String.format("Xeger didn't return the same result in spite that the same pattern and seed were given:(pattern=%s, seed=%s)", regex, seed),
+        first.equals(second));
   }
 
   String composeRegex() {
@@ -113,5 +141,10 @@ public class XegerTest {
         this.characterClass1, this.quantifier1,
         this.characterClass2, this.quantifier2
     );
+  }
+
+  @Condition
+  public boolean isRangeA_C() {
+    return "[A-C]".equals(this.characterClass1);
   }
 }
